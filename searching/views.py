@@ -1,4 +1,5 @@
 import math
+from time import clock_getres
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,9 +20,9 @@ class LearningObjectAPI(APIView):
   def get(self, request):
       page = int(self.request.GET.get('page', 1))
       pageSize = int(self.request.GET.get('page_size', 8))
-      id = request.GET.get('id')
+      id = self.request.GET.get('id')
       if id:
-        learningObject = LearningObject.objects.get(id=id)
+        learningObject = LearningObject.objects.get(id=int(id))
         serializer = LearningObjectSerializer(learningObject, many=False)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -39,7 +40,7 @@ class LearningObjectAPI(APIView):
         'results': serializer.data,
         'count': count,
         'page': page,
-        'last_page': math.ceil(count/pageSize)
+        'page_count': math.ceil(count/pageSize)
         }, 
         status=status.HTTP_200_OK)
   
@@ -51,8 +52,8 @@ class LearningObjectAPI(APIView):
     return Response(status=status.HTTP_201_CREATED)
   
   def put(self, request):
-    id = request.GET.get('id')
-    learningObject = LearningObject.objects.get(id=id)
+    id = self.request.GET.get('id')
+    learningObject = LearningObject.objects.get(id=int(id))
     serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
     if serializer.is_valid():
         serializer.save()
