@@ -1,29 +1,32 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions, exceptions
+from rest_framework import status, exceptions
+from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate
 
 import jwt
-import datetime
+import datetime, time
 
 from django.conf import settings
 from .models import User
-from .serializers import UserSerializer
-from .authentication import CustomUserAuthentication
+from .serializers import UserSerializer, RetrieveUserSerializer
 
 # Create your views here.
 class RegisterUserApi(APIView):
   def post(self, request):
-    serializer = UserSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    serializer.save()
+    name = request.data['name']
+    email = request.data['email']
+    password = request.data['password']
+    User.objects.create_user(name=name, email=email, password=password)
     return Response(status=status.HTTP_201_CREATED)
 
 class LoginApi(APIView):
-  def createToken(self, userId: int): 
+  def createToken(self, user): 
     payload = dict(
-      id=userId,
-      exp=datetime.datetime.utcnow() + datetime.timedelta(hours=24),
-      iat=datetime.datetime.utcnow()
+      id=user.id,
+      exp=time.mktime((datetime.datetime.utcnow() + datetime.timedelta(hours=24)).timetuple()) * 1000,
+      iat=datetime.datetime.utcnow(),
+      isStaff=user.is_staff
     )
 
     token = jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
@@ -34,39 +37,30 @@ class LoginApi(APIView):
     email = request.data['email']
     password = request.data['password']
 
-    user = User.objects.filter(email=email).first()
-
+    user = authenticate(request, email=email, password=password)
+                 
     if user is None:
       raise exceptions.AuthenticationFailed("Invalid Credentials")
     
-    if not user.check_password(raw_password=password):
-      raise exceptions.AuthenticationFailed("Unautorized")
+    token = self.createToken(user=user)
 
-    token = self.createToken(userId=user.id) 
+    login(request, user)
 
-    resp = Response(status=status.HTTP_200_OK)
-
-    resp.set_cookie("jwt", token, httponly=True)
-
-    return resp
+    return Response(status=status.HTTP_200_OK, data={'jwt': token})
 
 class RetrieveUserApi(APIView):
-  authentication_classes = (CustomUserAuthentication,)
-  permission_classes = (permissions.IsAuthenticated,)
-
   def get(self, request):
-    user = request.user
-    serializer = UserSerializer(user)
+    token = request.META['HTTP_AUTHORIZATION']
+    tokenDecoded = jwt.decode(token, settings.JWT_SECRET,  algorithms="HS256")
+    
+    user = User.objects.filter(id=tokenDecoded['id']).first()
+
+    serializer = RetrieveUserSerializer(user)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 class LogoutApi(APIView):
-  authentication_classes = (CustomUserAuthentication,)
-  permission_classes = (permissions.IsAuthenticated,)
-
   def post(self, request):
-    resp = Response()
-    resp.delete_cookie("jwt")
-    resp.data = {"message": "loged out successfully"}
+    logout(request)
 
-    return resp
+    return Response(status=status.HTTP_200_OK)

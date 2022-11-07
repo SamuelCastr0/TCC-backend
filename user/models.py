@@ -2,21 +2,7 @@ from django.db import models
 from django.contrib.auth import models as authModels
 
 
-class UserManeger(authModels.BaseUserManager):
-  def create_user(self, name: str, email: str, password: str = None, is_staff=False, is_superuser=False) -> "User":
-    if not email:
-      raise ValueError("User must have an email")
-    if not name:
-      raise ValueError("User must have an name")
-    
-    user = self.model(email=self.normalize_email(email))
-    user.name = name
-    user.set_password(password)
-    user.is_Active = True
-    user.is_staff = is_staff
-    user.is_superuser = is_superuser
-    user.save()
-  
+class UserManeger(authModels.BaseUserManager):  
   def create_user(self, name: str, email: str, password: str = None, is_staff=False, is_superuser=False) -> "User":
     if not email:
       raise ValueError("User must have an email")

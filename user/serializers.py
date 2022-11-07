@@ -6,3 +6,9 @@ class UserSerializer(serializers.ModelSerializer):
     model = User
     read_only_fields = ('is_active', 'is_staff', 'is_admin', 'id')
     fields = '__all__'
+  
+class RetrieveUserSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = User
+    read_only_fields = ('is_active', 'is_staff', 'is_admin', 'id')
+    exclude = ['password']
