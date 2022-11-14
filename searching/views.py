@@ -17,14 +17,8 @@ class LearningObjectAPI(APIView):
     return LearningObject.objects.all()
 
   def get(self, request):
-      page = int(self.request.GET.get('page', 1))
+      page = 1 if self.request.GET.get('search') else int(self.request.GET.get('page', 1))
       pageSize = int(self.request.GET.get('page_size', 8))
-      id = self.request.GET.get('id')
-      if id:
-        learningObject = LearningObject.objects.get(id=int(id))
-        serializer = LearningObjectSerializer(learningObject, many=False)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
       learningObjects = self.getLearningObjects()
 

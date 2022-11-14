@@ -17,6 +17,12 @@ class RegisterUserApi(APIView):
     name = request.data['name']
     email = request.data['email']
     password = request.data['password']
+
+    user = User.objects.filter(email=email).first()
+
+    if user:
+      raise exceptions.AuthenticationFailed("Usuário já existe")
+
     User.objects.create_user(name=name, email=email, password=password)
     return Response(status=status.HTTP_201_CREATED)
 
@@ -40,7 +46,7 @@ class LoginApi(APIView):
     user = authenticate(request, email=email, password=password)
                  
     if user is None:
-      raise exceptions.AuthenticationFailed("Invalid Credentials")
+      raise exceptions.AuthenticationFailed("Credenciais Incorretas")
     
     token = self.createToken(user=user)
 
