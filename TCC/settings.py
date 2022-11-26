@@ -89,7 +89,7 @@ WSGI_APPLICATION = 'TCC.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
+        'NAME': 'tcc',
         'USER': 'samuelcastro',
         'PASSWORD': 'postgresql',
         'HOST': 'localhost',

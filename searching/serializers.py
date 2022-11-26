@@ -6,3 +6,9 @@ class LearningObjectSerializer(serializers.ModelSerializer):
     read_only_fields = ('id',)
     model = LearningObject
     fields = '__all__'
+
+class CreateLearningObjectSerializer(serializers.ModelSerializer):
+  class Meta:
+    read_only_fields = ('id',)
+    model = LearningObject
+    exclude = ('isPublished', )

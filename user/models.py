@@ -32,10 +32,25 @@ class UserManeger(authModels.BaseUserManager):
     return user
 
 class User(authModels.AbstractUser):
+  CATEGORY_CHOICES = [
+    ('GRADUATE', 'Graduate Student'),
+    ('MASTERING', 'Mastering Student'),
+    ('PHD', 'PHD Student'),
+    ('PROFESSOR', 'Professor'),
+  ]
+
   id = models.BigAutoField(primary_key=True)
-  name = models.CharField(verbose_name="Name", max_length=150)
-  email = models.EmailField(verbose_name="Email", max_length=150, unique=True)
-  password = models.CharField(max_length=150)
+  name = models.CharField(max_length=100)
+  email = models.EmailField(max_length=100, unique=True)
+  password = models.CharField(max_length=100)
+  lattes = models.URLField(max_length=100, null=True, blank=True)
+  googleScholar = models.URLField(max_length=100, null=True, blank=True)
+  researchGate = models.URLField(max_length=100, null=True, blank=True)
+  orcid = models.URLField(max_length=100, null=True, blank=True)
+  github = models.URLField(max_length=100, null=True, blank=True)
+  course = models.CharField(max_length=100, null=True, blank=True)
+  category = models.CharField(choices=CATEGORY_CHOICES, default='GRADUATE', max_length=50, blank=True)
+  oia = models.BooleanField(default=False, blank=True)
 
   first_name = None
   last_name = None
