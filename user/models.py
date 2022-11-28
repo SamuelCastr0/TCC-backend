@@ -11,7 +11,8 @@ class UserManeger(authModels.BaseUserManager):
     
     user = self.model(email=self.normalize_email(email))
     user.name = name
-    user.set_password(password)
+    if password:
+      user.set_password(password)
     user.is_Active = True
     user.is_staff = is_staff
     user.is_superuser = is_superuser

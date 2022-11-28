@@ -3,14 +3,34 @@ from rest_framework.response import Response
 from rest_framework import status, exceptions
 from django.contrib.auth import login, logout
 from django.contrib.auth import authenticate
-
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 
 from .utils import createToken, getUserFromToken
 from .models import User
 from .serializers import UserSerializer, RetrieveUserSerializer
+from django.conf import settings
 
-# Create your views here.
+class GoogleSignIn(APIView):
+  def post(self, request):
+    try:
+      token = request.data['idToken']
+      idInfo = id_token.verify_oauth2_token(token, requests.Request(), settings.CLIENT_ID)
+      user = User.objects.filter(email=idInfo['email']).first()
+      if not user:
+        try:
+          user = User.objects.create_user(name=idInfo['name'], email=idInfo['email'])
+        except:
+          raise exceptions.AuthenticationFailed("Email em uso") 
+      
+      jwtToken = createToken(user=user)
+
+      return Response(status=status.HTTP_200_OK, data={'jwt': jwtToken})
+    except ValueError:
+      raise exceptions.AuthenticationFailed("Token inválido")
+
+
 class RegisterUserApi(APIView):
   def post(self, request):
     email = request.data['email']

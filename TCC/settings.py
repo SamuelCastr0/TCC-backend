@@ -23,6 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-gs_r-4v$)p_hdhe=mlm)yhc8oj()5x(ye4f88fch)_%do^=e4i'
 JWT_SECRET = "projetotccsearchlearningobjects"
 
+CLIENT_ID = '554950280911-oaku6c1d5ddh6ss0u2m16k8a7q7lnu2a.apps.googleusercontent.com'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
