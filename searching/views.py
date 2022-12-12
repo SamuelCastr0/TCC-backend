@@ -2,20 +2,91 @@ import math
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, exceptions
+from rest_framework import status
 
-from user.utils import getUserFromToken
-
+from user.utils import validateStaffUser, validateSuperUser
 from .models import LearningObject
 from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer
 
+def paginateObjects(objects, request, Serializer):
+  page = 1 if request.GET.get('search') else int(request.GET.get('page', 1))
+  pageSize = int(request.GET.get('page_size', 8))
+
+  count = objects.count()
+  start = (page - 1) * pageSize
+  end = page * pageSize
+
+  serializer = Serializer(objects[start:end], many=True)
+
+  return Response({
+      'results': serializer.data,
+      'count': count,
+      'page': page,
+      'page_count': math.ceil(count/pageSize)
+    }, 
+    status=status.HTTP_200_OK)
 
 class LearningObjectAPI(APIView):
+  def get(self, request):
+    token = request.META['HTTP_AUTHORIZATION']
+    validationResponse = validateStaffUser(token)
+
+    if validationResponse:
+      return validationResponse
+
+    learningObjects = self.getLearningObjects()
+    paginatedResponse = paginateObjects(learningObjects, request, LearningObjectSerializer)
+    
+    return paginatedResponse
+  
+  def post(self, request):
+    token = request.META['HTTP_AUTHORIZATION']
+    validationResponse = validateStaffUser(token)
+
+    if validationResponse:
+      return validationResponse
+
+    serializer = CreateLearningObjectSerializer(data=request.data)
+
+    if serializer.is_valid():
+      serializer.save()
+
+    return Response(status=status.HTTP_201_CREATED)
+  
+  def put(self, request, id):
+    token = request.META['HTTP_AUTHORIZATION']
+    validationResponse = validateSuperUser(token)
+
+    if validationResponse:
+      return validationResponse
+
+    learningObject = LearningObject.objects.get(id=int(id))
+    serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
+    
+    if serializer.is_valid():
+        serializer.save()
+
+    return Response(status=status.HTTP_200_OK)
+
+  def delete(self, request, id):
+    token = request.META['HTTP_AUTHORIZATION']
+    validationResponse = validateSuperUser(token)
+
+    if validationResponse:
+      return validationResponse
+
+    learningObject = LearningObject.objects.get(id=id)
+    learningObject.delete()
+
+    return Response(status=status.HTTP_200_OK)
+
   def filterObjects(self, objects, filter):
     if filter == 'published':
       objects = objects.filter(isPublished=True)
+
     if filter == 'not-published':
       objects = objects.filter(isPublished=False)
+
     return objects
 
   def getLearningObjects(self):
@@ -32,97 +103,24 @@ class LearningObjectAPI(APIView):
 
     return filteredObjects
 
-  def get(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token)
-
-    if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
-    
-    if not user.is_staff:
-      raise exceptions.NotAuthenticated("Usuário não tem permissão")
-
-    page = 1 if self.request.GET.get('search') else int(self.request.GET.get('page', 1))
-    pageSize = int(self.request.GET.get('page_size', 8))
-
-    learningObjects = self.getLearningObjects()
-
-    # pagination
-    count = learningObjects.count()
-    start = (page - 1) * pageSize
-    end = page * pageSize
-
-    serializer = LearningObjectSerializer(learningObjects[start:end], many=True)
-
-    return Response({
-      'results': serializer.data,
-      'count': count,
-      'page': page,
-      'page_count': math.ceil(count/pageSize)
-      }, 
-      status=status.HTTP_200_OK)
-  
-  def post(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token)
-
-    if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
-    
-    if not user.is_staff:
-      raise exceptions.NotAuthenticated("Usuário não tem permissão")
-
-    serializer = CreateLearningObjectSerializer(data=request.data)
-    if serializer.is_valid():
-      serializer.save()
-
-    return Response(status=status.HTTP_201_CREATED)
-  
+class PublishLearningObjectAPI(APIView):
   def put(self, request, id):
     token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token)
+    validationResponse = validateSuperUser(token)
 
-    if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
-    
-    if not user.is_superuser:
-      raise exceptions.NotAuthenticated("Usuário não tem permissão")
-
-    learningObject = LearningObject.objects.get(id=int(id))
-    serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-
-    return Response(status=status.HTTP_200_OK)
-
-  def delete(self, request, id):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token)
-
-    if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
-    
-    if not user.is_superuser:
-      raise exceptions.NotAuthenticated("Usuário não tem permissão")
-
-    learningObject = LearningObject.objects.get(id=id)
-    learningObject.delete()
-
-    return Response(status=status.HTTP_200_OK)
-
-class PublishLearningObject(APIView):
-  def put(self, request, id):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token)
-
-    if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
-    
-    if not user.is_superuser:
-      raise exceptions.NotAuthenticated("Usuário não tem permissão")
+    if validationResponse:
+      return validationResponse
     
     learningObject = LearningObject.objects.get(id=int(id))
     learningObject.isPublished = not learningObject.isPublished
     learningObject.save()
 
     return Response(status=status.HTTP_200_OK)
+
+class SearchObjectsAPI(APIView):
+  def get(self, request):
+    search = request.GET.get('search')
+    learningObjects = LearningObject.objects.filter(Q(name__icontains=search) & Q(isPublished=True))
+    paginatedResponse = paginateObjects(learningObjects, request, LearningObjectSerializer)
+
+    return paginatedResponse

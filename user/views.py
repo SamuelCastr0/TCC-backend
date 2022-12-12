@@ -5,12 +5,13 @@ from django.contrib.auth import login, logout
 from django.contrib.auth import authenticate
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from django.conf import settings
 
 
-from .utils import createToken, getUserFromToken
+from .utils import createToken, getUserFromToken, createRefresh, getUserFromRefresh, isTokenExpired
 from .models import User
 from .serializers import UserSerializer, RetrieveUserSerializer
-from django.conf import settings
+
 
 class GoogleSignIn(APIView):
   def post(self, request):
@@ -25,11 +26,11 @@ class GoogleSignIn(APIView):
           raise exceptions.AuthenticationFailed("Email em uso") 
       
       jwtToken = createToken(user=user)
+      refreshToken = createRefresh(user=user)
 
-      return Response(status=status.HTTP_200_OK, data={'jwt': jwtToken})
+      return Response(status=status.HTTP_200_OK, data={'access_token': jwtToken, 'refresh_token': refreshToken, 'is_staff': user.is_staff})
     except ValueError:
       raise exceptions.AuthenticationFailed("Token inválido")
-
 
 class RegisterUserApi(APIView):
   def post(self, request):
@@ -65,29 +66,40 @@ class LoginApi(APIView):
   def post(self, request):
     email = request.data['email']
     password = request.data['password']
-
     user = authenticate(request, email=email, password=password)
                  
     if user is None:
       raise exceptions.AuthenticationFailed("Credenciais Incorretas")
     
-    token = createToken(user=user)
-
+    jwtToken = createToken(user=user)
+    refreshToken = createRefresh(user=user)
     login(request, user)
 
-    return Response(status=status.HTTP_200_OK, data={'jwt': token})
+    return Response(status=status.HTTP_200_OK, data={'access_token': jwtToken, 'refresh_token': refreshToken, 'is_staff': user.is_staff})
 
 class RetrieveUserApi(APIView):
   def get(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
+    token = request.META['HTTP_AUTHORIZATION']  
+    if isTokenExpired(token):
+      return Response({'detail': 'Token inválido'}, status=status.HTTP_401_UNAUTHORIZED)
+
     user = getUserFromToken(token)
 
     if not user:
-      raise exceptions.NotAuthenticated("Usuário não autenticado")
+      raise exceptions.AuthenticationFailed("Usuário não autenticado")
 
     serializer = RetrieveUserSerializer(user)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+class RefresUserApi(APIView):
+  def post(self, request):
+    token = request.data['refresh_token']
+    user = getUserFromRefresh(token)
+    if user:
+      token = createToken(user)
+      return Response(status=status.HTTP_200_OK, data={'access_token': token})
+    raise exceptions.AuthenticationFailed("Não autorizado")
 
 class LogoutApi(APIView):
   def post(self, request):
