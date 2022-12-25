@@ -9,7 +9,7 @@ from .models import LearningObject
 from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer
 
 def paginateObjects(objects, request, Serializer):
-  page = 1 if request.GET.get('search') else int(request.GET.get('page', 1))
+  page = int(request.GET.get('page', 1))
   pageSize = int(request.GET.get('page_size', 8))
 
   count = objects.count()
@@ -122,5 +122,6 @@ class SearchObjectsAPI(APIView):
     search = request.GET.get('search')
     learningObjects = LearningObject.objects.filter(Q(name__icontains=search) & Q(isPublished=True))
     paginatedResponse = paginateObjects(learningObjects, request, LearningObjectSerializer)
+    print(paginatedResponse.data)
 
     return paginatedResponse
