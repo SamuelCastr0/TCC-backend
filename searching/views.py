@@ -1,14 +1,15 @@
 import math
 from django.db.models import Q
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from user.utils import validateStaffUser, validateSuperUser
-from .models import LearningObject
-from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer
+from user.utils import validateStaffUser, validateSuperUser, getUserFromToken
+from .models import LearningObject, Course, CourseLearningObject
+from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer
 
-def paginateObjects(objects, request, Serializer):
+def paginate(objects, request, Serializer):
   page = int(request.GET.get('page', 1))
   pageSize = int(request.GET.get('page_size', 8))
 
@@ -35,7 +36,7 @@ class LearningObjectAPI(APIView):
       return validationResponse
 
     learningObjects = self.getLearningObjects()
-    paginatedResponse = paginateObjects(learningObjects, request, LearningObjectSerializer)
+    paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
     
     return paginatedResponse
   
@@ -47,9 +48,8 @@ class LearningObjectAPI(APIView):
       return validationResponse
 
     serializer = CreateLearningObjectSerializer(data=request.data)
-
     if serializer.is_valid():
-      serializer.save()
+      serializer.save(createdBy=getUserFromToken(token))
 
     return Response(status=status.HTTP_201_CREATED)
   
@@ -64,7 +64,7 @@ class LearningObjectAPI(APIView):
     serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
     
     if serializer.is_valid():
-        serializer.save()
+        serializer.save(editedBy=getUserFromToken(token))
 
     return Response(status=status.HTTP_200_OK)
 
@@ -121,7 +121,63 @@ class SearchObjectsAPI(APIView):
   def get(self, request):
     search = request.GET.get('search')
     learningObjects = LearningObject.objects.filter(Q(name__icontains=search) & Q(isPublished=True))
-    paginatedResponse = paginateObjects(learningObjects, request, LearningObjectSerializer)
-    print(paginatedResponse.data)
+    paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
 
     return paginatedResponse
+
+class CourseAPI(APIView):
+  def get(self, request):
+    token = request.META['HTTP_AUTHORIZATION']
+    user = getUserFromToken(token).id
+    search = self.request.GET.get('search')
+    courses = []
+
+    if search: 
+      courses = Course.objects.filter(Q(name__icontains=search, user=user))
+    else: 
+      courses = Course.objects.filter(user=user)
+    
+    paginatedResponse = paginate(courses, request, CourseSerializer)
+
+    return paginatedResponse
+
+  def post(self, request):
+    token = request.META['HTTP_AUTHORIZATION']
+    user = getUserFromToken(token).id
+    with transaction.atomic():
+      course = Course.objects.create(name=request.data['name'], user_id=user)
+      index = 0
+      for object in request.data['objects']:
+        CourseLearningObject.objects.create(course_id=course.id, learningObject_id=object['id'], index=index)
+        index += 1
+
+      return Response(status=status.HTTP_200_OK)
+  
+  def patch(self, request, course):
+    course = Course.objects.filter(id=course).first()
+    serializer = CourseSerializer(instance=course, data=request.data, partial=True)
+
+    if serializer.is_valid():
+      serializer.save()
+      return Response(status=status.HTTP_200_OK)
+    
+    return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+  def delete(self, request, course):
+    course = Course.objects.filter(id=course).first()
+    course.delete()
+
+    return Response(status=status.HTTP_200_OK)
+
+
+class ObjectsFromCoursesAPI(APIView):
+  def get(self, request, course):
+    relationships = CourseLearningObject.objects.filter(course=course)
+    objects = []
+    for relationship in relationships:
+      objects.append(relationship.learningObject)
+    serializer = LearningObjectSerializer(objects, many=True)
+
+    return Response(serializer.data , status=200)
+    

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LearningObject
+from .models import LearningObject, Course
 
 class LearningObjectSerializer(serializers.ModelSerializer):
   class Meta:
@@ -12,3 +12,9 @@ class CreateLearningObjectSerializer(serializers.ModelSerializer):
     read_only_fields = ('id',)
     model = LearningObject
     exclude = ('isPublished', )
+
+class CourseSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = Course
+    fields = '__all__'
+
