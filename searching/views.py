@@ -7,7 +7,7 @@ from rest_framework import status
 
 from user.utils import validateStaffUser, validateSuperUser, getUserFromToken
 from .models import LearningObject, Course, CourseLearningObject
-from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer
+from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer, CourseLearningObjectSerializer
 
 def paginate(objects, request, Serializer):
   page = int(request.GET.get('page', 1))
@@ -69,8 +69,10 @@ class LearningObjectAPI(APIView):
     return Response(status=status.HTTP_200_OK)
 
   def delete(self, request, id):
+    print(request.META['HTTP_AUTHORIZATION'])
     token = request.META['HTTP_AUTHORIZATION']
     validationResponse = validateSuperUser(token)
+    print('ola')
 
     if validationResponse:
       return validationResponse
@@ -154,7 +156,10 @@ class CourseAPI(APIView):
       return Response(status=status.HTTP_200_OK)
   
   def patch(self, request, course):
-    course = Course.objects.filter(id=course).first()
+    token = request.META['HTTP_AUTHORIZATION']
+    user = getUserFromToken(token).id
+    course = Course.objects.filter(id=course, user=user).first()
+    
     serializer = CourseSerializer(instance=course, data=request.data, partial=True)
 
     if serializer.is_valid():
@@ -165,7 +170,9 @@ class CourseAPI(APIView):
 
 
   def delete(self, request, course):
-    course = Course.objects.filter(id=course).first()
+    token = request.META['HTTP_AUTHORIZATION']
+    user = getUserFromToken(token).id
+    course = Course.objects.filter(id=course, user=user).first()
     course.delete()
 
     return Response(status=status.HTTP_200_OK)
@@ -180,4 +187,20 @@ class ObjectsFromCoursesAPI(APIView):
     serializer = LearningObjectSerializer(objects, many=True)
 
     return Response(serializer.data , status=200)
-    
+
+class CouseLearningObjectsAPI(APIView):
+  def get(self, request, course):
+    relationships = CourseLearningObject.objects.filter(course=course)
+    serializer = CourseLearningObjectSerializer(instance=relationships, many=True)
+
+    return Response(status=status.HTTP_200_OK, data=serializer.data)
+
+class ToogleObjectInCouseAPI(APIView):
+  def post(self, request):
+    course = request.data['course']
+    learningObject = request.data['object']
+    relationship = CourseLearningObject.objects.filter(course=course, learningObject=learningObject).first()
+    relationship.isCompleted = not relationship.isCompleted
+    relationship.save()
+
+    return Response(status=status.HTTP_200_OK)

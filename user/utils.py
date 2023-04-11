@@ -54,7 +54,7 @@ def isTokenExpired(token):
         return True
     return False
 
-def validateUser(token):
+def validateAndRetrieveUser(token):
   if isTokenExpired(token):
     return None
 
@@ -66,7 +66,7 @@ def validateUser(token):
   return user
 
 def validateStaffUser(token):
-  user = validateUser(token)
+  user = validateAndRetrieveUser(token)
   
   if not user:
         return Response(status=status.HTTP_401_UNAUTHORIZED, data={'detail': 'Token inválido'})
@@ -77,7 +77,7 @@ def validateStaffUser(token):
   return None
 
 def validateSuperUser(token):
-  user = validateUser(token)
+  user = validateAndRetrieveUser(token)
   
   if not user:
         return Response(status=status.HTTP_401_UNAUTHORIZED, data={'detail': 'Token inválido'})

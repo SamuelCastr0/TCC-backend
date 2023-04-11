@@ -31,6 +31,7 @@ class CourseLearningObject(models.Model):
   course = models.ForeignKey(Course, on_delete=models.CASCADE)
   learningObject = models.ForeignKey(LearningObject, on_delete=models.CASCADE)
   index = models.IntegerField()
+  isCompleted = models.BooleanField(default=False)
 
   class Meta:
     ordering = ['index']
