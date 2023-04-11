@@ -23,7 +23,7 @@ https://www.digitalocean.com/community/tutorials/how-to-use-postgresql-with-your
 
 ## Setup your database in the application
 
-After creating the database you must go to "/TCC/settings.py" and changes the DATABASE config according to what you created
+After creating the database you must go to "/TCC/settings.py" and change the DATABASE config according to what you created
 
 Exemple:
 
