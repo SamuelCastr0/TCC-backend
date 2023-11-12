@@ -9,6 +9,7 @@ from user.utils import validateStaffUser, validateSuperUser, getUserFromToken
 from .models import LearningObject, Course, CourseLearningObject
 from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer, CourseLearningObjectSerializer
 
+
 def paginate(objects, request, Serializer):
   page = int(request.GET.get('page', 1))
   pageSize = int(request.GET.get('page_size', 8))
@@ -26,6 +27,7 @@ def paginate(objects, request, Serializer):
       'page_count': math.ceil(count/pageSize)
     }, 
     status=status.HTTP_200_OK)
+
 
 class LearningObjectAPI(APIView):
   def get(self, request):
@@ -69,10 +71,8 @@ class LearningObjectAPI(APIView):
     return Response(status=status.HTTP_200_OK)
 
   def delete(self, request, id):
-    print(request.META['HTTP_AUTHORIZATION'])
     token = request.META['HTTP_AUTHORIZATION']
     validationResponse = validateSuperUser(token)
-    print('ola')
 
     if validationResponse:
       return validationResponse
@@ -105,6 +105,7 @@ class LearningObjectAPI(APIView):
 
     return filteredObjects
 
+
 class PublishLearningObjectAPI(APIView):
   def put(self, request, id):
     token = request.META['HTTP_AUTHORIZATION']
@@ -119,6 +120,7 @@ class PublishLearningObjectAPI(APIView):
 
     return Response(status=status.HTTP_200_OK)
 
+
 class SearchObjectsAPI(APIView):
   def get(self, request):
     search = request.GET.get('search')
@@ -126,6 +128,7 @@ class SearchObjectsAPI(APIView):
     paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
 
     return paginatedResponse
+
 
 class CourseAPI(APIView):
   def get(self, request):
@@ -168,7 +171,6 @@ class CourseAPI(APIView):
     
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
-
   def delete(self, request, course):
     token = request.META['HTTP_AUTHORIZATION']
     user = getUserFromToken(token).id
@@ -188,12 +190,14 @@ class ObjectsFromCoursesAPI(APIView):
 
     return Response(serializer.data , status=200)
 
+
 class CouseLearningObjectsAPI(APIView):
   def get(self, request, course):
     relationships = CourseLearningObject.objects.filter(course=course)
     serializer = CourseLearningObjectSerializer(instance=relationships, many=True)
 
     return Response(status=status.HTTP_200_OK, data=serializer.data)
+
 
 class ToogleObjectInCouseAPI(APIView):
   def post(self, request):
@@ -204,3 +208,4 @@ class ToogleObjectInCouseAPI(APIView):
     relationship.save()
 
     return Response(status=status.HTTP_200_OK)
+  

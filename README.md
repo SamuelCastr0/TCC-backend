@@ -16,28 +16,10 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-## Create a Postgresql database
+## Run the Postgresql database container
 
-You'll need to create a database with Postgresql, follow this tutorial if you need help.  
-https://www.digitalocean.com/community/tutorials/how-to-use-postgresql-with-your-django-application-on-ubuntu-20-04
-
-## Setup your database in the application
-
-After creating the database you must go to "/TCC/settings.py" and change the DATABASE config according to what you created
-
-Exemple:
-
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tcc',
-        'USER': 'admin',
-        'PASSWORD': 'postgresql',
-        'HOST': 'localhost',
-        'PORT': '',
-    }
-}
+```sh
+pip docker-compose up -d db
 ```
 
 ## Aply all migrations to your database

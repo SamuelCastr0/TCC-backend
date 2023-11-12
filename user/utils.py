@@ -44,18 +44,22 @@ def getUserFromRefresh(token):
         return user
     return None
 
-def isTokenExpired(token):
-    tokenDecoded = jwt.decode(token, settings.JWT_SECRET,  algorithms="HS256")
+def isTokenValid(token):
+    try:
+      tokenDecoded = jwt.decode(token, settings.JWT_SECRET,  algorithms="HS256")
+    except:
+       return False
+    
     expTime = tokenDecoded['exp']
     expDate = datetime.datetime.fromtimestamp(expTime/1000.0)
     currentDate = datetime.datetime.now()
 
     if expDate < currentDate:
-        return True
-    return False
+        return False
+    return True
 
 def validateAndRetrieveUser(token):
-  if isTokenExpired(token):
+  if isTokenValid(token):
     return None
 
   user = getUserFromToken(token)

@@ -8,7 +8,7 @@ from google.auth.transport import requests
 from django.conf import settings
 
 
-from .utils import createToken, getUserFromToken, createRefresh, getUserFromRefresh, isTokenExpired
+from .utils import createToken, getUserFromToken, createRefresh, getUserFromRefresh, isTokenValid
 from .models import User
 from .serializers import UserSerializer, RetrieveUserSerializer
 
@@ -80,7 +80,7 @@ class LoginApi(APIView):
 class RetrieveUserApi(APIView):
   def get(self, request):
     token = request.META['HTTP_AUTHORIZATION']  
-    if isTokenExpired(token):
+    if not isTokenValid(token):
       return Response({'detail': 'Token inválido'}, status=status.HTTP_401_UNAUTHORIZED)
 
     user = getUserFromToken(token)
