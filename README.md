@@ -19,7 +19,7 @@ pip install -r requirements.txt
 ## Run the Postgresql database container
 
 ```sh
-pip docker-compose up -d db
+docker-compose up -d db
 ```
 
 ## Aply all migrations to your database

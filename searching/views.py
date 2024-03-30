@@ -45,15 +45,15 @@ class LearningObjectAPI(APIView):
   def post(self, request):
     token = request.META['HTTP_AUTHORIZATION']
     validationResponse = validateStaffUser(token)
-
+    print("1")
     if validationResponse:
       return validationResponse
-
+    print("2")
     serializer = CreateLearningObjectSerializer(data=request.data)
     if serializer.is_valid():
       serializer.save(createdBy=getUserFromToken(token))
-
-    return Response(status=status.HTTP_201_CREATED)
+      return Response(status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
   
   def put(self, request, id):
     token = request.META['HTTP_AUTHORIZATION']
@@ -97,7 +97,11 @@ class LearningObjectAPI(APIView):
     learningObjects = []
 
     if search: 
-      learningObjects = LearningObject.objects.filter(Q(name__icontains=search)).values()
+      learningObjects = LearningObject.objects.filter(
+          Q(title__icontains=search) |
+          Q(description__icontains=search) |
+          Q(keywords__icontains=search)
+        ).values()
     else: 
       learningObjects = LearningObject.objects.all()
     
@@ -124,7 +128,12 @@ class PublishLearningObjectAPI(APIView):
 class SearchObjectsAPI(APIView):
   def get(self, request):
     search = request.GET.get('search')
-    learningObjects = LearningObject.objects.filter(Q(name__icontains=search) & Q(isPublished=True))
+    learningObjects = LearningObject.objects.filter((
+        Q(title__icontains=search) |
+        Q(description__icontains=search) |
+        Q(keywords__icontains=search)
+      ) & Q(isPublished=True))
+    
     paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
 
     return paginatedResponse

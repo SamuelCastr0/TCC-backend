@@ -32,9 +32,7 @@ def getUserFromToken(token):
     tokenDecoded = jwt.decode(token, settings.JWT_SECRET,  algorithms="HS256")
     user = User.objects.filter(id=tokenDecoded['id']).first()
 
-    if user:
-        return user
-    return None
+    return user
 
 def getUserFromRefresh(token):
     tokenDecoded = jwt.decode(token, settings.REFRESH_SECRET,  algorithms="HS256")
@@ -53,20 +51,15 @@ def isTokenValid(token):
     expTime = tokenDecoded['exp']
     expDate = datetime.datetime.fromtimestamp(expTime/1000.0)
     currentDate = datetime.datetime.now()
-
-    if expDate < currentDate:
-        return False
-    return True
+    
+    return expDate > currentDate
 
 def validateAndRetrieveUser(token):
-  if isTokenValid(token):
+  if not isTokenValid(token):
     return None
 
   user = getUserFromToken(token)
 
-  if not user:
-    return None
-  
   return user
 
 def validateStaffUser(token):
