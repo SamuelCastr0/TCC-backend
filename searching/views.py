@@ -6,215 +6,195 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from user.utils import validateStaffUser, validateSuperUser, getUserFromToken
+from .decorators import roleValidation
 from .models import LearningObject, Course, CourseLearningObject
-from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer, CourseLearningObjectSerializer
+from .serializers import CreateLearningObjectSerializer, LearningObjectSerializer, CourseSerializer, \
+    CourseLearningObjectSerializer
 
 
 def paginate(objects, request, Serializer):
-  page = int(request.GET.get('page', 1))
-  pageSize = int(request.GET.get('page_size', 8))
+    page = int(request.GET.get('page', 1))
+    pageSize = int(request.GET.get('page_size', 8))
 
-  count = objects.count()
-  start = (page - 1) * pageSize
-  end = page * pageSize
+    count = objects.count()
+    start = (page - 1) * pageSize
+    end = page * pageSize
 
-  serializer = Serializer(objects[start:end], many=True)
+    serializer = Serializer(objects[start:end], many=True)
 
-  return Response({
-      'results': serializer.data,
-      'count': count,
-      'page': page,
-      'page_count': math.ceil(count/pageSize)
-    }, 
-    status=status.HTTP_200_OK)
+    return Response({
+        'results': serializer.data,
+        'count': count,
+        'page': page,
+        'page_count': math.ceil(count / pageSize)
+    },
+        status=status.HTTP_200_OK)
 
 
 class LearningObjectAPI(APIView):
-  def get(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    validationResponse = validateStaffUser(token)
+    @roleValidation("staff")
+    def get(self, request):
+        learningObjects = self.getLearningObjects()
+        paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
 
-    if validationResponse:
-      return validationResponse
+        return paginatedResponse
 
-    learningObjects = self.getLearningObjects()
-    paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
-    
-    return paginatedResponse
-  
-  def post(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    validationResponse = validateStaffUser(token)
-    print("1")
-    if validationResponse:
-      return validationResponse
-    print("2")
-    serializer = CreateLearningObjectSerializer(data=request.data)
-    if serializer.is_valid():
-      serializer.save(createdBy=getUserFromToken(token))
-      return Response(status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-  
-  def put(self, request, id):
-    token = request.META['HTTP_AUTHORIZATION']
-    validationResponse = validateSuperUser(token)
+    @roleValidation("staff")
+    def post(self, request):
+        serializer = CreateLearningObjectSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(createdBy=getUserFromToken(request.META['HTTP_AUTHORIZATION']))
+            return Response(status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    if validationResponse:
-      return validationResponse
+    @roleValidation("admin")
+    def put(self, request, id):
+        learningObject = LearningObject.objects.get(id=int(id))
+        serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
 
-    learningObject = LearningObject.objects.get(id=int(id))
-    serializer = LearningObjectSerializer(instance=learningObject, data=request.data)
-    
-    if serializer.is_valid():
-        serializer.save(editedBy=getUserFromToken(token))
+        if serializer.is_valid():
+            serializer.save(editedBy=getUserFromToken(request.META['HTTP_AUTHORIZATION']))
 
-    return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_200_OK)
 
-  def delete(self, request, id):
-    token = request.META['HTTP_AUTHORIZATION']
-    validationResponse = validateSuperUser(token)
+    @roleValidation("admin")
+    def delete(self, request, id):
+        learningObject = LearningObject.objects.get(id=id)
+        learningObject.delete()
 
-    if validationResponse:
-      return validationResponse
+        return Response(status=status.HTTP_200_OK)
 
-    learningObject = LearningObject.objects.get(id=id)
-    learningObject.delete()
+    def filterObjects(self, objects, filter):
+        if filter == 'published':
+            objects = objects.filter(isPublished=True)
 
-    return Response(status=status.HTTP_200_OK)
+        if filter == 'not-published':
+            objects = objects.filter(isPublished=False)
 
-  def filterObjects(self, objects, filter):
-    if filter == 'published':
-      objects = objects.filter(isPublished=True)
+        return objects
 
-    if filter == 'not-published':
-      objects = objects.filter(isPublished=False)
+    def getLearningObjects(self):
+        filter = self.request.GET.get('filter')
+        search = self.request.GET.get('search')
 
-    return objects
+        if search:
+            learningObjects = LearningObject.objects.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(keywords__icontains=search)
+            ).values()
+        else:
+            learningObjects = LearningObject.objects.all()
 
-  def getLearningObjects(self):
-    filter = self.request.GET.get('filter')
-    search = self.request.GET.get('search')
-    learningObjects = []
+        filteredObjects = self.filterObjects(learningObjects, filter)
 
-    if search: 
-      learningObjects = LearningObject.objects.filter(
-          Q(title__icontains=search) |
-          Q(description__icontains=search) |
-          Q(keywords__icontains=search)
-        ).values()
-    else: 
-      learningObjects = LearningObject.objects.all()
-    
-    filteredObjects = self.filterObjects(learningObjects, filter)
-
-    return filteredObjects
+        return filteredObjects
 
 
 class PublishLearningObjectAPI(APIView):
-  def put(self, request, id):
-    token = request.META['HTTP_AUTHORIZATION']
-    validationResponse = validateSuperUser(token)
+    def put(self, request, id):
+        token = request.META['HTTP_AUTHORIZATION']
+        validationResponse = validateSuperUser(token)
 
-    if validationResponse:
-      return validationResponse
-    
-    learningObject = LearningObject.objects.get(id=int(id))
-    learningObject.isPublished = not learningObject.isPublished
-    learningObject.save()
+        if validationResponse:
+            return validationResponse
 
-    return Response(status=status.HTTP_200_OK)
+        learningObject = LearningObject.objects.get(id=int(id))
+        learningObject.isPublished = not learningObject.isPublished
+        learningObject.save()
+
+        return Response(status=status.HTTP_200_OK)
 
 
 class SearchObjectsAPI(APIView):
-  def get(self, request):
-    search = request.GET.get('search')
-    learningObjects = LearningObject.objects.filter((
-        Q(title__icontains=search) |
-        Q(description__icontains=search) |
-        Q(keywords__icontains=search)
-      ) & Q(isPublished=True))
-    
-    paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
+    def get(self, request):
+        search = request.GET.get('search')
+        learningObjects = LearningObject.objects.filter((
+                                                                Q(title__icontains=search) |
+                                                                Q(description__icontains=search) |
+                                                                Q(keywords__icontains=search)
+                                                        ) & Q(isPublished=True))
 
-    return paginatedResponse
+        paginatedResponse = paginate(learningObjects, request, LearningObjectSerializer)
+
+        return paginatedResponse
 
 
 class CourseAPI(APIView):
-  def get(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token).id
-    search = self.request.GET.get('search')
-    courses = []
+    def get(self, request):
+        token = request.META['HTTP_AUTHORIZATION']
+        user = getUserFromToken(token).id
+        search = self.request.GET.get('search')
+        courses = []
 
-    if search: 
-      courses = Course.objects.filter(Q(name__icontains=search, user=user))
-    else: 
-      courses = Course.objects.filter(user=user)
-    
-    paginatedResponse = paginate(courses, request, CourseSerializer)
+        if search:
+            courses = Course.objects.filter(Q(name__icontains=search, user=user))
+        else:
+            courses = Course.objects.filter(user=user)
 
-    return paginatedResponse
+        paginatedResponse = paginate(courses, request, CourseSerializer)
 
-  def post(self, request):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token).id
-    with transaction.atomic():
-      course = Course.objects.create(name=request.data['name'], user_id=user)
-      index = 0
-      for object in request.data['objects']:
-        CourseLearningObject.objects.create(course_id=course.id, learningObject_id=object['id'], index=index)
-        index += 1
+        return paginatedResponse
 
-      return Response(status=status.HTTP_200_OK)
-  
-  def patch(self, request, course):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token).id
-    course = Course.objects.filter(id=course, user=user).first()
-    
-    serializer = CourseSerializer(instance=course, data=request.data, partial=True)
+    def post(self, request):
+        token = request.META['HTTP_AUTHORIZATION']
+        user = getUserFromToken(token).id
+        with transaction.atomic():
+            course = Course.objects.create(name=request.data['name'], user_id=user)
+            index = 0
+            for object in request.data['objects']:
+                CourseLearningObject.objects.create(course_id=course.id, learningObject_id=object['id'], index=index)
+                index += 1
 
-    if serializer.is_valid():
-      serializer.save()
-      return Response(status=status.HTTP_200_OK)
-    
-    return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_200_OK)
 
-  def delete(self, request, course):
-    token = request.META['HTTP_AUTHORIZATION']
-    user = getUserFromToken(token).id
-    course = Course.objects.filter(id=course, user=user).first()
-    course.delete()
+    def patch(self, request, course):
+        token = request.META['HTTP_AUTHORIZATION']
+        user = getUserFromToken(token).id
+        course = Course.objects.filter(id=course, user=user).first()
 
-    return Response(status=status.HTTP_200_OK)
+        serializer = CourseSerializer(instance=course, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(status=status.HTTP_200_OK)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, course):
+        token = request.META['HTTP_AUTHORIZATION']
+        user = getUserFromToken(token).id
+        course = Course.objects.filter(id=course, user=user).first()
+        course.delete()
+
+        return Response(status=status.HTTP_200_OK)
 
 
 class ObjectsFromCoursesAPI(APIView):
-  def get(self, request, course):
-    relationships = CourseLearningObject.objects.filter(course=course)
-    objects = []
-    for relationship in relationships:
-      objects.append(relationship.learningObject)
-    serializer = LearningObjectSerializer(objects, many=True)
+    def get(self, request, course):
+        relationships = CourseLearningObject.objects.filter(course=course)
+        objects = []
+        for relationship in relationships:
+            objects.append(relationship.learningObject)
+        serializer = LearningObjectSerializer(objects, many=True)
 
-    return Response(serializer.data , status=200)
+        return Response(serializer.data, status=200)
 
 
 class CouseLearningObjectsAPI(APIView):
-  def get(self, request, course):
-    relationships = CourseLearningObject.objects.filter(course=course)
-    serializer = CourseLearningObjectSerializer(instance=relationships, many=True)
+    def get(self, request, course):
+        relationships = CourseLearningObject.objects.filter(course=course)
+        serializer = CourseLearningObjectSerializer(instance=relationships, many=True)
 
-    return Response(status=status.HTTP_200_OK, data=serializer.data)
+        return Response(status=status.HTTP_200_OK, data=serializer.data)
 
 
 class ToogleObjectInCouseAPI(APIView):
-  def post(self, request):
-    course = request.data['course']
-    learningObject = request.data['object']
-    relationship = CourseLearningObject.objects.filter(course=course, learningObject=learningObject).first()
-    relationship.isCompleted = not relationship.isCompleted
-    relationship.save()
+    def post(self, request):
+        course = request.data['course']
+        learningObject = request.data['object']
+        relationship = CourseLearningObject.objects.filter(course=course, learningObject=learningObject).first()
+        relationship.isCompleted = not relationship.isCompleted
+        relationship.save()
 
-    return Response(status=status.HTTP_200_OK)
-  
+        return Response(status=status.HTTP_200_OK)
