@@ -51,7 +51,7 @@ class User(authModels.AbstractUser):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
-    password = models.CharField(max_length=100)
+    password = models.CharField(max_length=100, null=True, default=None)
     lattes = models.URLField(max_length=100, null=True, blank=True)
     googleScholar = models.URLField(max_length=100, null=True, blank=True)
     researchGate = models.URLField(max_length=100, null=True, blank=True)

@@ -12,8 +12,8 @@ class LanguageTypes:
 
 class LearningObject(models.Model):
   id = models.BigAutoField(primary_key=True)
-  title = models.CharField(max_length=30)
-  description = models.CharField(max_length=2000)
+  title = models.CharField(max_length=100)
+  description = models.CharField(max_length=5000)
   keywords = models.CharField(max_length=100)
   link = models.CharField(max_length=500)
   durationMin = models.IntegerField(null=True, default=None)
